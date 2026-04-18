@@ -1,0 +1,1461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SPARK 2026 - Registration Validator</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --primary: #ff6b6b;
+      --secondary: #4ecdc4;
+      --accent: #45b7d1;
+      --dark: #0f0f1e;
+      --darker: #050510;
+      --card-bg: rgba(255, 255, 255, 0.08);
+      --text: #ffffff;
+      --text-muted: #b0b8c1;
+      --border: rgba(255, 255, 255, 0.12);
+      --success: #2ecc71;
+      --warning: #f39c12;
+      --danger: #e74c3c;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #0f0f1e 0%, #1a1a3e 50%, #0d0d2b 100%);
+      color: var(--text);
+      font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: 
+        radial-gradient(circle at 10% 20%, rgba(255, 107, 107, 0.15) 0%, transparent 50%),
+        radial-gradient(circle at 90% 80%, rgba(78, 205, 196, 0.15) 0%, transparent 50%),
+        radial-gradient(circle at 50% 50%, rgba(69, 183, 209, 0.08) 0%, transparent 50%);
+      pointer-events: none;
+      z-index: 0;
+      animation: gradientShift 8s ease-in-out infinite;
+    }
+
+    .app-shell {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 60px 32px;
+      position: relative;
+      z-index: 1;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 70px;
+      animation: slideInDown 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    header h1 {
+      font-size: clamp(2.5rem, 5vw, 4.5rem);
+      font-weight: 900;
+      background: linear-gradient(135deg, #ff6b6b 0%, #4ecdc4 50%, #45b7d1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -3px;
+      margin-bottom: 16px;
+      animation: titleGlow 2s ease-in-out infinite;
+    }
+
+    header p {
+      font-size: 1.2rem;
+      color: var(--text-muted);
+      max-width: 800px;
+      margin: 0 auto;
+      line-height: 1.8;
+      animation: fadeIn 1.2s ease-out 0.3s both;
+    }
+
+    .upload-panel {
+      background: linear-gradient(135deg, var(--card-bg) 0%, rgba(255, 255, 255, 0.05) 100%);
+      border: 2px solid rgba(255, 107, 107, 0.3);
+      border-radius: 32px;
+      padding: 80px 60px;
+      text-align: center;
+      cursor: pointer;
+      margin-bottom: 60px;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      backdrop-filter: blur(20px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 0 60px rgba(255, 107, 107, 0.1);
+      animation: slideInUp 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .upload-panel::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: conic-gradient(from 0deg, transparent, rgba(78, 205, 196, 0.5), transparent 30%);
+      animation: spin 5s linear infinite;
+      opacity: 0;
+      transition: opacity 0.4s;
+    }
+
+    .upload-panel.dragover {
+      border-color: rgba(78, 205, 196, 0.8);
+      background: linear-gradient(135deg, rgba(78, 205, 196, 0.15) 0%, rgba(69, 183, 209, 0.1) 100%);
+      box-shadow: 0 20px 60px rgba(78, 205, 196, 0.3), inset 0 0 60px rgba(78, 205, 196, 0.15);
+      transform: scale(1.03);
+    }
+
+    .upload-panel.dragover::before {
+      opacity: 1;
+    }
+
+    .upload-content {
+      position: relative;
+      z-index: 2;
+    }
+
+    .upload-icon {
+      font-size: 100px;
+      margin-bottom: 24px;
+      animation: bounceFloat 4s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+      display: inline-block;
+      filter: drop-shadow(0 0 30px rgba(255, 107, 107, 0.4));
+    }
+
+    .upload-panel h2 {
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: #ffffff;
+      margin-bottom: 12px;
+      animation: fadeIn 1s ease-out 0.4s both;
+    }
+
+    .upload-panel p {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      margin-bottom: 8px;
+      line-height: 1.6;
+    }
+
+    .upload-meta {
+      margin-top: 24px;
+      padding: 16px 28px;
+      background: linear-gradient(135deg, rgba(255, 107, 107, 0.15) 0%, rgba(78, 205, 196, 0.15) 100%);
+      border: 2px solid rgba(255, 107, 107, 0.4);
+      border-radius: 16px;
+      color: #ff6b6b;
+      font-weight: 700;
+      font-size: 0.95rem;
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .upload-meta.active {
+      background: linear-gradient(135deg, rgba(78, 205, 196, 0.25) 0%, rgba(69, 183, 209, 0.2) 100%);
+      box-shadow: 0 0 40px rgba(78, 205, 196, 0.4);
+      border-color: #4ecdc4;
+      color: #4ecdc4;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      margin-bottom: 60px;
+      justify-content: center;
+      animation: slideInUp 1s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s both;
+    }
+
+    button, .btn {
+      padding: 16px 40px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 16px;
+      cursor: pointer;
+      transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      position: relative;
+      overflow: hidden;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+    }
+
+    button::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.3);
+      transform: translate(-50%, -50%);
+      transition: width 0.6s, height 0.6s;
+      z-index: 0;
+    }
+
+    button:active::before {
+      width: 400px;
+      height: 400px;
+    }
+
+    .btn {
+      background: linear-gradient(135deg, #ff6b6b 0%, #ff8787 100%);
+      color: white;
+      box-shadow: 0 10px 30px rgba(255, 107, 107, 0.3);
+    }
+
+    .btn:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 15px 50px rgba(255, 107, 107, 0.5);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-secondary {
+      background: linear-gradient(135deg, #4ecdc4 0%, #45b7d1 100%);
+      box-shadow: 0 10px 30px rgba(78, 205, 196, 0.3);
+    }
+
+    .btn-secondary:hover {
+      box-shadow: 0 15px 50px rgba(78, 205, 196, 0.5);
+    }
+
+    .card-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 28px;
+      margin-bottom: 60px;
+      animation: slideInUp 1s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both;
+    }
+
+    .card {
+      background: linear-gradient(135deg, rgba(255, 107, 107, 0.1) 0%, rgba(78, 205, 196, 0.05) 100%);
+      border: 2px solid rgba(255, 107, 107, 0.2);
+      border-radius: 24px;
+      padding: 40px;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      backdrop-filter: blur(20px);
+      min-height: 180px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(255, 107, 107, 0.3) 0%, transparent 70%);
+      animation: pulse 5s ease-in-out infinite;
+    }
+
+    .card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(45deg, transparent 30%, rgba(78, 205, 196, 0.1) 50%, transparent 70%);
+      animation: shimmer 4s infinite;
+    }
+
+    .card:hover {
+      transform: translateY(-15px) scale(1.03);
+      border-color: rgba(78, 205, 196, 0.6);
+      box-shadow: 0 20px 60px rgba(78, 205, 196, 0.3);
+    }
+
+    .card h2 {
+      font-size: 3.5rem;
+      font-weight: 900;
+      margin: 0 0 16px 0;
+      background: linear-gradient(135deg, #ff6b6b 0%, #4ecdc4 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      position: relative;
+      z-index: 1;
+    }
+
+    .card span {
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      font-weight: 700;
+      position: relative;
+      z-index: 1;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    .filters {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px;
+      margin-bottom: 40px;
+      animation: slideInUp 1s cubic-bezier(0.34, 1.56, 0.64, 1) 0.4s both;
+    }
+
+    .filters input, .filters select {
+      background: rgba(255, 255, 255, 0.08);
+      border: 2px solid rgba(255, 255, 255, 0.15);
+      border-radius: 14px;
+      padding: 14px 18px;
+      color: #ffffff;
+      font-size: 0.95rem;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(15px);
+    }
+
+    .filters input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .filters input:focus, .filters select:focus {
+      outline: none;
+      border-color: #4ecdc4;
+      box-shadow: 0 0 40px rgba(78, 205, 196, 0.3);
+      background: rgba(78, 205, 196, 0.1);
+    }
+
+    .table-wrapper {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
+      border: 2px solid rgba(78, 205, 196, 0.3);
+      border-radius: 24px;
+      overflow-x: auto;
+      overflow-y: visible;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 15px 50px rgba(0, 0, 0, 0.3);
+      animation: slideInUp 1s cubic-bezier(0.34, 1.56, 0.64, 1) 0.5s both;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1300px;
+      table-layout: auto;
+    }
+
+    table th:last-child, table td:last-child {
+      position: sticky;
+      right: 0;
+      background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 0%, rgba(78, 205, 196, 0.15) 50%, rgba(78, 205, 196, 0.3) 100%);
+      box-shadow: -20px 0 40px rgba(0, 0, 0, 0.3);
+      z-index: 5;
+    }
+
+    table th:last-child {
+      background: linear-gradient(90deg, rgba(255, 255, 255, 0.1) 0%, rgba(78, 205, 196, 0.25) 50%, rgba(78, 205, 196, 0.4) 100%);
+    }
+
+    th, td {
+      padding: 20px 16px;
+      text-align: left;
+      vertical-align: middle;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 0.95rem;
+      color: #ffffff;
+      word-wrap: break-word;
+      white-space: normal;
+    }
+
+    th {
+      background: rgba(0, 0, 0, 0.3);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      cursor: pointer;
+      color: #4ecdc4;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      user-select: none;
+      transition: all 0.3s ease;
+    }
+
+    th:hover {
+      background: rgba(78, 205, 196, 0.2);
+      color: #45b7d1;
+      text-shadow: 0 0 15px rgba(78, 205, 196, 0.5);
+    }
+
+    th span.sort-arrow {
+      margin-left: 8px;
+      color: #ff6b6b;
+      font-size: 0.85rem;
+    }
+
+    tbody tr {
+      transition: all 0.3s ease;
+    }
+
+    tbody tr:hover {
+      background: rgba(78, 205, 196, 0.15);
+      cursor: pointer;
+    }
+
+    tbody tr:nth-child(even) {
+      background: rgba(255, 107, 107, 0.04);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      transition: all 0.3s ease;
+    }
+
+    .badge.valid {
+      background: rgba(46, 204, 113, 0.2);
+      color: #2ecc71;
+      box-shadow: 0 0 25px rgba(46, 204, 113, 0.3);
+      border: 1px solid rgba(46, 204, 113, 0.5);
+    }
+
+    .badge.valid:hover {
+      background: rgba(46, 204, 113, 0.35);
+      box-shadow: 0 0 40px rgba(46, 204, 113, 0.5);
+    }
+
+    .badge.rejected {
+      background: rgba(231, 76, 60, 0.2);
+      color: #e74c3c;
+      box-shadow: 0 0 25px rgba(231, 76, 60, 0.3);
+      border: 1px solid rgba(231, 76, 60, 0.5);
+    }
+
+    .badge.rejected:hover {
+      background: rgba(231, 76, 60, 0.35);
+      box-shadow: 0 0 40px rgba(231, 76, 60, 0.5);
+    }
+
+    .badge.discrepancy {
+      background: rgba(243, 156, 18, 0.2);
+      color: #f39c12;
+      box-shadow: 0 0 25px rgba(243, 156, 18, 0.3);
+      border: 1px solid rgba(243, 156, 18, 0.5);
+    }
+
+    .badge.discrepancy:hover {
+      background: rgba(243, 156, 18, 0.35);
+      box-shadow: 0 0 40px rgba(243, 156, 18, 0.5);
+    }
+
+    .button-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+      padding: 10px 14px;
+      background: linear-gradient(135deg, #ff6b6b 0%, #4ecdc4 100%);
+      color: white;
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 700;
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+
+    .button-link:hover {
+      transform: scale(1.15) translateY(-3px);
+      box-shadow: 0 10px 30px rgba(78, 205, 196, 0.4);
+    }
+
+    .button-muted {
+      background: rgba(176, 184, 193, 0.2);
+      color: var(--text-muted);
+      border: 1px solid rgba(176, 184, 193, 0.3);
+    }
+
+    .details-row {
+      display: none;
+      background: rgba(78, 205, 196, 0.1);
+    }
+
+    .details-row td {
+      padding: 24px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .details-row td div {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+
+    .details-row.active {
+      display: table-row;
+      animation: slideDown 0.4s ease;
+    }
+
+    .spinner-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 15, 30, 0.95);
+      backdrop-filter: blur(10px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+
+    .spinner-overlay.active {
+      display: flex;
+      animation: fadeIn 0.4s ease;
+    }
+
+    .spinner {
+      width: 120px;
+      height: 120px;
+      border: 5px solid rgba(78, 205, 196, 0.2);
+      border-top-color: #ff6b6b;
+      border-right-color: #4ecdc4;
+      border-radius: 50%;
+      animation: spin 1.2s linear infinite;
+      box-shadow: 0 0 60px rgba(78, 205, 196, 0.5), 0 0 100px rgba(255, 107, 107, 0.3);
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-25px); } }
+    @keyframes bounceFloat { 0%, 100% { transform: translateY(0px) scale(1); } 50% { transform: translateY(-40px) scale(1.1); } }
+    @keyframes pulse { 0%, 100% { transform: scale(1); opacity: 0.5; } 50% { transform: scale(1.2); opacity: 1; } }
+    @keyframes slideInDown { from { opacity: 0; transform: translateY(-50px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes slideInUp { from { opacity: 0; transform: translateY(50px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes slideDown { from { opacity: 0; max-height: 0; } to { opacity: 1; max-height: 600px; } }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes titleGlow { 0%, 100% { filter: drop-shadow(0 0 30px rgba(255, 107, 107, 0.4)); } 50% { filter: drop-shadow(0 0 60px rgba(78, 205, 196, 0.6)); } }
+    @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+    @keyframes gradientShift { 0%, 100% { opacity: 0.8; } 50% { opacity: 1; } }
+
+    @media (max-width: 1024px) {
+      .app-shell { padding: 40px 20px; }
+      header h1 { font-size: 3rem; }
+      .card-row { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+    }
+
+    @media (max-width: 768px) {
+      .app-shell { padding: 30px 16px; }
+      header h1 { font-size: 2.2rem; }
+      th, td { padding: 12px 10px; font-size: 0.8rem; }
+      .upload-panel { padding: 50px 30px; }
+      .actions { flex-direction: column; gap: 12px; }
+      .filters { grid-template-columns: 1fr; }
+      .card-row { grid-template-columns: 1fr; }
+    }
+
+    .upload-panel {
+      background: linear-gradient(135deg, var(--card-bg) 0%, rgba(255, 255, 255, 0.05) 100%);
+      border: 2px solid rgba(255, 107, 107, 0.3);
+      border-radius: 32px;
+      padding: 80px 60px;
+      text-align: center;
+      cursor: pointer;
+      margin-bottom: 60px;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      backdrop-filter: blur(20px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 0 60px rgba(255, 107, 107, 0.1);
+      animation: slideInUp 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .upload-panel::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: conic-gradient(from 0deg, transparent, rgba(79, 70, 229, 0.3), transparent 30%);
+      animation: spin 4s linear infinite;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .upload-panel::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: radial-gradient(circle at 30% 30%, rgba(236, 72, 153, 0.1) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .upload-panel.dragover {
+      border-color: rgba(78, 205, 196, 0.8);
+      background: linear-gradient(135deg, rgba(78, 205, 196, 0.15) 0%, rgba(69, 183, 209, 0.1) 100%);
+      box-shadow: 0 20px 60px rgba(78, 205, 196, 0.3), inset 0 0 60px rgba(78, 205, 196, 0.15);
+      transform: scale(1.03);
+    }
+
+    .upload-panel.dragover::before {
+      opacity: 1;
+    }
+
+    .upload-content {
+      position: relative;
+      z-index: 2;
+    }
+
+    .upload-icon {
+      font-size: 80px;
+      margin-bottom: 20px;
+      animation: bounceFloat 3s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+      display: inline-block;
+      filter: drop-shadow(0 0 20px rgba(99, 102, 241, 0.4));
+    }
+
+    .upload-panel h2 {
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: #ffffff;
+      margin-bottom: 12px;
+      animation: fadeIn 1s ease-out 0.4s both;
+    }
+
+    .upload-panel p {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      margin-bottom: 8px;
+      line-height: 1.6;
+    }
+
+    .login-container {
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(135deg, #0f0f1e 0%, #1a1a3e 50%, #0d0d2b 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      animation: fadeIn 0.5s ease;
+    }
+
+    .login-container::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: 
+        radial-gradient(circle at 10% 20%, rgba(255, 107, 107, 0.2) 0%, transparent 50%),
+        radial-gradient(circle at 90% 80%, rgba(78, 205, 196, 0.2) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    .login-container.hidden {
+      display: none;
+    }
+
+    .login-box {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+      border: 2px solid rgba(78, 205, 196, 0.4);
+      border-radius: 32px;
+      padding: 70px 60px;
+      box-shadow: 0 25px 80px rgba(0, 0, 0, 0.4), inset 0 0 60px rgba(78, 205, 196, 0.08);
+      width: 100%;
+      max-width: 480px;
+      animation: slideInDown 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+      backdrop-filter: blur(25px);
+      position: relative;
+      z-index: 1;
+    }
+
+    .login-box h1 {
+      font-size: 3.5rem;
+      font-weight: 900;
+      background: linear-gradient(135deg, #ff6b6b 0%, #4ecdc4 50%, #45b7d1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 12px;
+      text-align: center;
+      animation: titleGlow 2s ease-in-out infinite;
+    }
+
+    .login-box p {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 1.15rem;
+      margin-bottom: 50px;
+      font-weight: 600;
+      letter-spacing: 1px;
+    }
+
+    .login-form {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .form-group label {
+      font-weight: 700;
+      color: #ffffff;
+      text-transform: uppercase;
+      font-size: 0.9rem;
+      letter-spacing: 1px;
+    }
+
+    .form-group input {
+      padding: 16px 20px;
+      border: 2px solid rgba(78, 205, 196, 0.3);
+      border-radius: 16px;
+      font-size: 1rem;
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.08);
+      transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      backdrop-filter: blur(15px);
+    }
+
+    .form-group input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #4ecdc4;
+      box-shadow: 0 0 40px rgba(78, 205, 196, 0.4), inset 0 0 20px rgba(78, 205, 196, 0.1);
+      background: rgba(78, 205, 196, 0.1);
+    }
+
+    .login-btn {
+      padding: 16px 40px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 16px;
+      cursor: pointer;
+      background: linear-gradient(135deg, #ff6b6b 0%, #ff8787 100%);
+      color: white;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-top: 20px;
+      transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow: 0 10px 30px rgba(255, 107, 107, 0.3);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .login-btn::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.3);
+      transform: translate(-50%, -50%);
+      transition: width 0.6s, height 0.6s;
+    }
+
+    .login-btn:active::before {
+      width: 400px;
+      height: 400px;
+    }
+
+    .login-btn:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 15px 50px rgba(255, 107, 107, 0.5);
+    }
+
+    .error-message {
+      color: #ff6b6b;
+      font-size: 0.95rem;
+      text-align: center;
+      padding: 16px 18px;
+      background: rgba(255, 107, 107, 0.15);
+      border: 2px solid rgba(255, 107, 107, 0.4);
+      border-radius: 12px;
+      display: none;
+      font-weight: 700;
+    }
+
+    .error-message.show {
+      display: block;
+      animation: slideInUp 0.4s ease;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container" id="loginContainer">
+    <div class="login-box">
+      <h1>🔐 SPARK 2026</h1>
+      <p>Registration Validator</p>
+      <div class="error-message" id="errorMessage"></div>
+      <form class="login-form" id="loginForm">
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input type="text" id="username" placeholder="Enter your username" required />
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" placeholder="Enter your password" required />
+        </div>
+        <button type="submit" class="login-btn">Login</button>
+      </form>
+    </div>
+  </div>
+  <div class="app-shell">
+    <header>
+      <h1>⚡ SPARK 2026 - Registration Validator</h1>
+      <p>Upload Google Forms export as Excel/CSV, validate registrations by competition rules, and download a validated report.</p>
+    </header>
+
+    <div class="upload-panel" id="uploadPanel">
+      <div class="upload-content">
+        <div class="upload-icon">📤</div>
+        <h2>Drag & Drop Your Excel/CSV File</h2>
+        <p>Supported formats: .xlsx, .xls, .csv</p>
+        <p style="font-size: 0.85rem; color: #b0d4ff; margin-top: 12px;">Or click to browse files</p>
+        <p class="upload-meta" id="uploadMeta">No file selected</p>
+      </div>
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none" />
+    </div>
+
+    <div class="actions">
+      <button id="validateButton" class="btn-secondary">Validate All</button>
+      <button id="downloadButton" class="btn" disabled>Download Results as Excel</button>
+    </div>
+
+    <div class="card-row" id="statsRow" style="display:none">
+      <div class="card">
+        <h2 id="statTotal">0</h2>
+        <span>Total Registrations</span>
+      </div>
+      <div class="card">
+        <h2 id="statValid">0</h2>
+        <span>Valid ✅</span>
+      </div>
+      <div class="card">
+        <h2 id="statRejected">0</h2>
+        <span>Rejected ❌</span>
+      </div>
+      <div class="card">
+        <h2 id="statDiscrepancy">0</h2>
+        <span>Discrepancy ⚠️</span>
+      </div>
+    </div>
+
+    <div class="filters" id="filterControls" style="display:none">
+      <select id="statusFilter">
+        <option value="all">All Status</option>
+        <option value="VALID">Valid ✅</option>
+        <option value="REJECTED">Rejected ❌</option>
+        <option value="DISCREPANCY">Discrepancy ⚠️</option>
+      </select>
+      <select id="competitionFilter">
+        <option value="all">All Competitions</option>
+        <option value="Paper Presentation">Paper Presentation</option>
+        <option value="Project Competition">Project Competition</option>
+        <option value="Poster Competition">Poster Competition</option>
+      </select>
+      <input type="search" id="searchInput" placeholder="Search by name, college, UPI ID" />
+    </div>
+
+    <div class="table-wrapper" id="tableWrapper" style="display:none">
+      <table id="resultsTable">
+        <thead>
+          <tr>
+            <th data-key="srNo">Sr. No. <span class="sort-arrow"></span></th>
+            <th data-key="participantName">Name</th>
+            <th data-key="competition">Competition</th>
+            <th data-key="mode">Mode</th>
+            <th data-key="college">College</th>
+            <th data-key="count">Count</th>
+            <th>Receipt</th>
+            <th>Payment Done</th>
+            <th>Document</th>
+            <th data-key="amountDisplay">Amount to Pay</th>
+            <th data-key="reason">Validation Note</th>
+            <th data-key="status">Status</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="spinner-overlay" id="spinnerOverlay">
+    <div class="spinner"></div>
+  </div>
+
+  <script>
+    // ===== LOGIN FUNCTIONALITY =====
+    const loginContainer = document.getElementById('loginContainer');
+    const loginForm = document.getElementById('loginForm');
+    const usernameInput = document.getElementById('username');
+    const passwordInput = document.getElementById('password');
+    const errorMessage = document.getElementById('errorMessage');
+
+    const VALID_USERNAME = 'pallavi';
+    const VALID_PASSWORD = 'pallavi1243';
+
+    loginForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const username = usernameInput.value.trim();
+      const password = passwordInput.value;
+
+      if (username === VALID_USERNAME && password === VALID_PASSWORD) {
+        // Login successful
+        loginContainer.classList.add('hidden');
+        errorMessage.classList.remove('show');
+        usernameInput.value = '';
+        passwordInput.value = '';
+      } else {
+        // Login failed
+        errorMessage.textContent = '❌ Invalid username or password';
+        errorMessage.classList.add('show');
+        passwordInput.value = '';
+      }
+    });
+
+    // ===== APP FUNCTIONALITY =====
+    const fileInput = document.getElementById('fileInput');
+    const uploadMeta = document.getElementById('uploadMeta');
+    const validateButton = document.getElementById('validateButton');
+    const downloadButton = document.getElementById('downloadButton');
+    const statsRow = document.getElementById('statsRow');
+    const statusFilter = document.getElementById('statusFilter');
+    const competitionFilter = document.getElementById('competitionFilter');
+    const searchInput = document.getElementById('searchInput');
+    const filterControls = document.getElementById('filterControls');
+    const tableWrapper = document.getElementById('tableWrapper');
+    const resultsTableBody = document.querySelector('#resultsTable tbody');
+    const statTotal = document.getElementById('statTotal');
+    const statValid = document.getElementById('statValid');
+    const statRejected = document.getElementById('statRejected');
+    const statDiscrepancy = document.getElementById('statDiscrepancy');
+    const spinnerOverlay = document.getElementById('spinnerOverlay');
+
+    let currentResults = [];
+    let displayedResults = [];
+    let sortState = { key: 'srNo', direction: 'asc' };
+    let uploadedFile = null;
+
+    function showSpinner(active = true) {
+      spinnerOverlay.classList.toggle('active', active);
+    }
+
+    function parseCompetitionList(value) {
+      if (!value) return [];
+      const raw = String(value).trim();
+      const splitters = /[;,\n\/]+/;
+      return raw.split(splitters)
+        .map(v => v.trim())
+        .filter(v => v)
+        .flatMap(v => {
+          const lower = v.toLowerCase();
+          if (lower.includes('paper') && lower.includes('virtual')) return ['Paper Presentation|Virtual'];
+          if (lower.includes('paper') && lower.includes('offline')) return ['Paper Presentation|Offline'];
+          if (lower.includes('paper')) return ['Paper Presentation|Virtual'];
+          if (lower.includes('project')) return ['Project Competition'];
+          if (lower.includes('poster')) return ['Poster Competition'];
+          if (lower.includes('virtual')) return ['Paper Presentation|Virtual'];
+          if (lower.includes('offline')) return ['Paper Presentation|Offline'];
+          return [v];
+        })
+        .map(v => {
+          if (v.includes('|')) return v;
+          if (v === 'Paper Presentation') return 'Paper Presentation|Virtual';
+          return v;
+        });
+    }
+
+    function normalizeLink(value) {
+      const link = String(value || '').trim();
+      return link === '' ? '' : link;
+    }
+
+    function getText(value) {
+      return String(value || '').trim();
+    }
+
+    function countFilled(values) {
+      return values.filter(v => getText(v) !== '').length;
+    }
+
+    function sanitizeLinks(result) {
+      result.receiptLinkHtml = result.receiptLink ? `<a class="button-link" href="${result.receiptLink}" target="_blank" rel="noopener noreferrer">📄 View</a>` : `<span class="button-muted">❌ Missing</span>`;
+      result.documentLinkHtml = result.documentLink ? `<a class="button-link" href="${result.documentLink}" target="_blank" rel="noopener noreferrer">📄 View</a>` : `<span class="button-muted">❌ Missing</span>`;
+      return result;
+    }
+
+    function parseMode(value) {
+      if (!value) return 'Virtual';
+      const lower = value.toLowerCase();
+      if (lower.includes('offline')) return 'Offline';
+      if (lower.includes('virtual')) return 'Virtual';
+      return 'Virtual';
+    }
+
+    function getPaperMode(entry, college) {
+      const lowerCollege = (college || '').toLowerCase();
+      const isKdk = lowerCollege.includes('kdk');
+      const isKaramveer = lowerCollege.includes('karmavir') || lowerCollege.includes('karamveer');
+      
+      // KDK and Karmavir students MUST be Offline - override any input
+      if (isKdk || isKaramveer) {
+        return 'Offline';
+      }
+      
+      // For other colleges, check form input
+      if (entry.rawCompetitionValue && entry.rawCompetitionValue.includes('|')) {
+        return entry.rawCompetitionValue.split('|')[1];
+      }
+      
+      if (entry.wantRegisteredIn) {
+        const lower = entry.wantRegisteredIn.toLowerCase();
+        if (lower.includes('offline')) return 'Offline';
+        if (lower.includes('virtual')) return 'Virtual';
+      }
+      
+      return 'Virtual'; // Default
+    }
+
+    function buildResultRow(entry, competitionType, mode) {
+      const raw = entry.rawRow;
+      const college = getText(competitionType === 'Project Competition' ? raw.collegeProject : competitionType === 'Poster Competition' ? raw.collegePoster : raw.collegePaper);
+      const email = getText(competitionType === 'Project Competition' ? raw.emailProject : competitionType === 'Poster Competition' ? raw.emailPoster : raw.emailPaper);
+      const mobile = getText(competitionType === 'Project Competition' ? raw.mobileProject : competitionType === 'Poster Competition' ? raw.mobilePoster : raw.mobilePaper);
+      const semester = getText(competitionType === 'Project Competition' ? raw.semesterProject : competitionType === 'Poster Competition' ? raw.semesterPoster : raw.semesterPaper);
+      const documentLink = normalizeLink(competitionType === 'Project Competition' ? raw.documentProject : competitionType === 'Poster Competition' ? raw.documentPoster : raw.abstractPaper);
+      const receiptLink = normalizeLink(competitionType === 'Project Competition' ? raw.receiptProject : competitionType === 'Poster Competition' ? raw.receiptPoster : raw.receiptPaper);
+      const declaredCount = Number(competitionType === 'Paper Presentation' ? raw.paperAuthorsDeclared : competitionType === 'Project Competition' ? raw.projectParticipantsDeclared : raw.posterParticipantsDeclared) || 0;
+      
+      let actualCount = 0;
+      let expectedFee = 0;
+      let amountBreakdown = '';
+      let missingFields = [];
+      let status = 'VALID';
+      let reasons = [];
+
+      if (!college) missingFields.push('College name');
+      if (!email) missingFields.push('Email ID');
+      if (!mobile) missingFields.push('Mobile number');
+      if (!semester) missingFields.push('Semester');
+
+      if (competitionType === 'Paper Presentation') {
+        const authors = [raw.firstAuthor, raw.secondAuthor, raw.thirdAuthor, raw.fourthAuthor, raw.fifthAuthor, raw.sixthAuthor, raw.seventhAuthor].map(getText);
+        actualCount = countFilled(authors);
+        const modeUsed = mode || getPaperMode(entry, college);
+        const lowerCollege = college.toLowerCase();
+        const isKdk = lowerCollege.includes('kdk');
+        const isKaramveer = lowerCollege.includes('karmavir') || lowerCollege.includes('karamveer');
+        const onlyOffline = isKdk || isKaramveer;
+        
+        // No need to validate mode now since getPaperMode already enforces it
+        const baseFee = modeUsed === 'Offline' ? 750 : 500;
+        const extraFee = 250;
+        const extraAuthors = Math.max(0, actualCount - 3);
+        expectedFee = baseFee + extraAuthors * extraFee;
+        amountBreakdown = actualCount <= 3 ? `Rs. ${expectedFee} (${actualCount} author${actualCount !== 1 ? 's' : ''}, ${modeUsed} mode)` : `Rs. ${expectedFee} (${actualCount} authors: Rs.${baseFee} + ${extraAuthors} × Rs.${extraFee}, ${modeUsed} mode)`;
+        
+        if (actualCount > 7) {
+          status = 'REJECTED';
+          reasons.push('More than 7 authors not allowed');
+        }
+      } else if (competitionType === 'Project Competition') {
+        const participants = [raw.projectFirst, raw.projectSecond, raw.projectThird, raw.projectFourth, raw.projectFifth, raw.projectSixth].map(getText);
+        actualCount = countFilled(participants);
+        const baseFeePrj = 500;
+        const extraFeePrj = 150;
+        const extraParticipants = Math.max(0, actualCount - 3);
+        expectedFee = baseFeePrj + extraParticipants * extraFeePrj;
+        amountBreakdown = actualCount <= 3 ? `Rs. ${expectedFee} (${actualCount} participant${actualCount !== 1 ? 's' : ''})` : `Rs. ${expectedFee} (${actualCount} participants: Rs.${baseFeePrj} + ${extraParticipants} × Rs.${extraFeePrj})`;
+        
+        if (actualCount > 6) {
+          status = 'REJECTED';
+          reasons.push('More than 6 project participants not allowed');
+        }
+      } else if (competitionType === 'Poster Competition') {
+        const participants = [raw.posterFirst, raw.posterSecond, raw.posterThird, raw.posterFourth, raw.posterFifth, raw.posterSixth].map(getText);
+        actualCount = countFilled(participants);
+        const feePerParticipant = 150;
+        expectedFee = actualCount * feePerParticipant;
+        amountBreakdown = `Rs. ${expectedFee} (${actualCount} participant${actualCount !== 1 ? 's' : ''} × Rs.${feePerParticipant})`;
+        
+        if (actualCount > 6) {
+          status = 'REJECTED';
+          reasons.push('More than 6 poster participants not allowed');
+        }
+      }
+
+      if (missingFields.length) {
+        reasons.unshift(...missingFields.map(field => `${field} is empty`));
+        status = 'REJECTED';
+      }
+
+      const summaryReason = reasons.length ? reasons[0] : 'All validations passed';
+      const participantName = competitionType === 'Project Competition' ? (getText(raw.projectFirst) || getText(raw.participantName)) : competitionType === 'Poster Competition' ? (getText(raw.posterFirst) || getText(raw.participantName)) : getText(raw.participantName);
+      
+      return sanitizeLinks({
+        srNo: 0,
+        participantName: participantName || 'Unknown',
+        competition: competitionType,
+        mode: competitionType === 'Paper Presentation' ? mode : '',
+        college,
+        count: actualCount || declaredCount || 0,
+        expectedFee,
+        amountDisplay: receiptLink ? 'More to Pay: Rs. 0' : `Amount to Pay: ${amountBreakdown}`,
+        receiptLink,
+        documentLink,
+        status,
+        reason: summaryReason,
+        receiptLinkHtml: '',
+        documentLinkHtml: '',
+        rawCompetitionValue: entry.rawCompetitionValue,
+        rawRow: raw,
+        originalRowIndex: entry.rowIndex,
+        declaredCount,
+        email,
+        mobile,
+        semester,
+      });
+    }
+
+    function createOutputRows(sheetData) {
+      const rows = [];
+      for (let i = 1; i < sheetData.length; i++) {
+        const row = sheetData[i];
+        if (!row || row.every(cell => getText(cell) === '')) continue;
+        
+        const raw = {
+          rowNumber: i + 1,
+          registrationSrNo: getText(row[0]),
+          participantName: getText(row[1]),
+          wantRegisteredIn: getText(row[2]),
+          // PAPER PRESENTATION (Columns 4-18)
+          paperTitle: getText(row[3]),
+          paperAuthorsDeclared: getText(row[4]),
+          firstAuthor: getText(row[5]),
+          secondAuthor: getText(row[6]),
+          thirdAuthor: getText(row[7]),
+          fourthAuthor: getText(row[8]),
+          fifthAuthor: getText(row[9]),
+          sixthAuthor: getText(row[10]),
+          seventhAuthor: getText(row[54]),
+          emailPaper: getText(row[11]),
+          mobilePaper: getText(row[12]),
+          semesterPaper: getText(row[13]),
+          departmentPaper: getText(row[14]),
+          collegePaper: getText(row[15]),
+          abstractPaper: normalizeLink(row[16]),
+          receiptPaper: normalizeLink(row[17]),
+          // PROJECT COMPETITION (Columns 19-32)
+          projectTitle: getText(row[18]),
+          projectParticipantsDeclared: getText(row[19]),
+          projectFirst: getText(row[20]),
+          projectSecond: getText(row[21]),
+          projectThird: getText(row[22]),
+          projectFourth: getText(row[23]),
+          projectFifth: getText(row[24]),
+          projectSixth: getText(row[25]),
+          emailProject: getText(row[26]),
+          mobileProject: getText(row[27]),
+          semesterProject: getText(row[28]),
+          departmentProject: getText(row[29]),
+          collegeProject: getText(row[30]),
+          documentProject: normalizeLink(row[31]),
+          receiptProject: normalizeLink(row[32]),
+          // POSTER COMPETITION (Columns 33-45)
+          posterTitle: getText(row[33]),
+          posterParticipantsDeclared: getText(row[34]),
+          posterFirst: getText(row[35]),
+          posterSecond: getText(row[36]),
+          posterThird: getText(row[37]),
+          posterFourth: getText(row[38]),
+          posterFifth: getText(row[49]),
+          posterSixth: getText(row[50]),
+          emailPoster: getText(row[39]),
+          mobilePoster: getText(row[40]),
+          semesterPoster: getText(row[41]),
+          departmentPoster: getText(row[42]),
+          collegePoster: getText(row[43]),
+          documentPoster: normalizeLink(row[44]),
+          receiptPoster: normalizeLink(row[45]),
+          // UPI & REMARKS (Columns 46-57)
+          upiPaper: getText(row[46]),
+          upiProject: getText(row[47]),
+          upiPoster: getText(row[48]),
+          existingRemark1: getText(row[55]),
+          existingRemark2: getText(row[56]),
+        };
+
+        const competitions = parseCompetitionList(raw.wantRegisteredIn);
+        if (competitions.length === 0) {
+          const baseEntry = { rowIndex: i + 1, rawCompetitionValue: '', rawRow: raw };
+          const result = buildResultRow(baseEntry, 'Paper Presentation', 'Virtual');
+          result.status = 'REJECTED';
+          result.reason = 'Competition selection missing';
+          rows.push(result);
+          continue;
+        }
+
+        const unique = new Set();
+        competitions.forEach(comp => {
+          let competitionType = comp;
+          let mode = '';
+          if (comp.includes('|')) {
+            [competitionType, mode] = comp.split('|');
+          }
+          competitionType = competitionType.trim();
+          const key = `${competitionType}|${mode}`;
+          if (unique.has(key)) return;
+          unique.add(key);
+          rows.push(buildResultRow({ rowIndex: i + 1, rawCompetitionValue: comp, wantRegisteredIn: raw.wantRegisteredIn, rawRow: raw }, competitionType, mode));
+        });
+      }
+      return rows;
+    }
+
+    function updateStats(results) {
+      const total = results.length;
+      const valid = results.filter(r => r.status === 'VALID').length;
+      const rejected = results.filter(r => r.status === 'REJECTED').length;
+      const discrepancy = results.filter(r => r.status === 'DISCREPANCY').length;
+      statTotal.textContent = total;
+      statValid.textContent = valid;
+      statRejected.textContent = rejected;
+      statDiscrepancy.textContent = discrepancy;
+    }
+
+    function renderTable(results) {
+      resultsTableBody.innerHTML = '';
+      results.forEach((row, index) => {
+        row.srNo = index + 1;
+        const paymentDone = row.receiptLink ? '✅ Yes' : '❌ No';
+        const tr = document.createElement('tr');
+        tr.classList.add(`status-${row.status.toLowerCase()}`);
+        tr.innerHTML = `
+          <td>${row.srNo}</td>
+          <td>${row.participantName}</td>
+          <td>${row.competition}</td>
+          <td>${row.mode || '—'}</td>
+          <td>${row.college || '—'}</td>
+          <td>${row.count}</td>
+          <td>${row.receiptLinkHtml}</td>
+          <td>${paymentDone}</td>
+          <td>${row.documentLinkHtml}</td>
+          <td><strong>${row.amountDisplay}</strong></td>
+          <td>${row.reason}</td>
+          <td><span class="badge ${row.status.toLowerCase()}">${row.status === 'VALID' ? '✅ VALID' : row.status === 'REJECTED' ? '❌ REJECTED' : '⚠️ DISCREPANCY'}</span></td>
+        `;
+        
+        const detailTr = document.createElement('tr');
+        detailTr.className = 'details-row';
+        detailTr.innerHTML = `
+          <td colspan="12">
+            <div>
+              <div><strong>Original Row:</strong> ${row.originalRowIndex}</div>
+              <div><strong>Email:</strong> ${row.email || '—'}</div>
+              <div><strong>Mobile:</strong> ${row.mobile || '—'}</div>
+              <div><strong>Semester:</strong> ${row.semester || '—'}</div>
+              <div><strong>Declared Count:</strong> ${row.declaredCount}</div>
+              <div><strong>Existing Remarks:</strong> ${row.rawRow.existingRemark1 || row.rawRow.existingRemark2 || 'None'}</div>
+            </div>
+          </td>
+        `;
+        
+        tr.addEventListener('click', () => {
+          detailTr.classList.toggle('active');
+        });
+        
+        resultsTableBody.appendChild(tr);
+        resultsTableBody.appendChild(detailTr);
+      });
+    }
+
+    function filterAndRender() {
+      const status = statusFilter.value;
+      const competition = competitionFilter.value;
+      const searchTerm = getText(searchInput.value).toLowerCase();
+      
+      displayedResults = currentResults.filter(item => {
+        if (status !== 'all' && item.status !== status) return false;
+        if (competition !== 'all' && item.competition !== competition) return false;
+        if (!searchTerm) return true;
+        const haystack = `${item.participantName} ${item.college} ${item.expectedFee}`.toLowerCase();
+        return haystack.includes(searchTerm);
+      });
+      
+      sortResults(displayedResults);
+      renderTable(displayedResults);
+    }
+
+    function sortResults(results) {
+      const { key, direction } = sortState;
+      results.sort((a, b) => {
+        const left = a[key] ?? '';
+        const right = b[key] ?? '';
+        if (typeof left === 'number' || typeof right === 'number') {
+          return direction === 'asc' ? (Number(left) - Number(right)) : (Number(right) - Number(left));
+        }
+        return direction === 'asc' ? String(left).localeCompare(right) : String(right).localeCompare(left);
+      });
+    }
+
+    function downloadResults() {
+      const headerRow = ['Registration Sr. No.', 'Name of Participant', 'Want to registered in', 'Title of Paper', 'Total Number of Authors in paper', 'Name of First Author', 'Name of Second Author', 'Name of Third Author', 'Name of Fourth Author', 'Name of Fifth Author', 'Name of Sixth Author', 'Name of Seventh Author', 'e-Mail ID of corresponding Author (First Author)', 'Mobile Number of corresponding Author', 'Semester', 'Name of Department', 'Name of College (Full Name)', 'Upload Abstract (Drive link)', 'Upload receipt of Payment (Drive link)', 'Title of Project', 'Total Number of Participants in Project Competition', 'Name of First Participant', 'Name of Second Participant', 'Name of Third Participant', 'Name of Fourth Participant', 'Name of Fifth Participant', 'Name of Sixth Participant', 'e Mail ID of corresponding Participant', 'Mobile Number of corresponding Participant', 'Semester (Project)', 'Name of College (Project)', 'Upload A3 document (Project Drive link)', 'Upload receipt of Payment (Project)', 'Title of Poster', 'Number of Participants in Poster Competition', 'Name of First Participant (Poster)', 'Name of Second Participant (Poster)', 'Name of Third Participant (Poster)', 'Name of Fourth Participant (Poster)', 'Name of Fifth Participant (Poster)', 'Name of Sixth Participant (Poster)', 'e Mail ID (Poster)', 'Mobile Number (Poster)', 'Semester (Poster)', 'Name of College (Poster)', 'Upload A3 Poster document (Drive link)', 'UPI Transaction ID / UTR No. (Paper)', 'Upload receipt of Payment (Poster)', 'UPI Transaction ID (Project)', 'UPI Transaction ID (Poster)', 'REMARK / Discrepancies as of 15-04-2026', 'REMARK / Discrepancies (second remarks column)', 'Amount to Pay (Calculated)', 'Payment Done', 'Validation Status', 'Validation Note'];
+      const outputRows = [headerRow];
+      
+      currentResults.forEach(item => {
+        const raw = item.rawRow;
+        const paymentDone = item.receiptLink ? 'Yes' : 'No';
+        outputRows.push([raw.registrationSrNo, raw.participantName, raw.wantRegisteredIn, raw.paperTitle, raw.paperAuthorsDeclared, raw.firstAuthor, raw.secondAuthor, raw.thirdAuthor, raw.fourthAuthor, raw.fifthAuthor, raw.sixthAuthor, raw.seventhAuthor, raw.emailPaper, raw.mobilePaper, raw.semesterPaper, raw.departmentPaper, raw.collegePaper, raw.abstractPaper, raw.receiptPaper, raw.projectTitle, raw.projectParticipantsDeclared, raw.projectFirst, raw.projectSecond, raw.projectThird, raw.projectFourth, raw.projectFifth, raw.projectSixth, raw.emailProject, raw.mobileProject, raw.semesterProject, raw.collegeProject, raw.documentProject, raw.receiptProject, raw.posterTitle, raw.posterParticipantsDeclared, raw.posterFirst, raw.posterSecond, raw.posterThird, raw.posterFourth, raw.posterFifth, raw.posterSixth, raw.emailPoster, raw.mobilePoster, raw.semesterPoster, raw.collegePoster, raw.documentPoster, raw.upiPaper, raw.receiptPoster, raw.upiProject, raw.upiPoster, raw.existingRemark1, raw.existingRemark2, item.amountDisplay, paymentDone, item.status, item.reason]);
+      });
+      
+      const worksheet = XLSX.utils.aoa_to_sheet(outputRows);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Validated Results');
+      const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([wbout], { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `SPARK_2026_Validated_${new Date().toISOString().slice(0,10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    uploadPanel.addEventListener('click', () => fileInput.click());
+    
+    uploadPanel.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadPanel.classList.add('dragover');
+    });
+    
+    uploadPanel.addEventListener('dragleave', () => uploadPanel.classList.remove('dragover'));
+    
+    uploadPanel.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadPanel.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file) handleFile(file);
+    });
+    
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) handleFile(file);
+    });
+
+    validateButton.addEventListener('click', () => {
+      if (!uploadedFile) {
+        alert('Please select a file first!');
+        return;
+      }
+      processFile(uploadedFile);
+    });
+
+    downloadButton.addEventListener('click', downloadResults);
+    statusFilter.addEventListener('change', filterAndRender);
+    competitionFilter.addEventListener('change', filterAndRender);
+    searchInput.addEventListener('input', filterAndRender);
+
+    document.querySelectorAll('#resultsTable th[data-key]').forEach(th => {
+      th.addEventListener('click', () => {
+        const key = th.getAttribute('data-key');
+        if (!key) return;
+        if (sortState.key === key) {
+          sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
+        } else {
+          sortState.key = key;
+          sortState.direction = 'asc';
+        }
+        document.querySelectorAll('#resultsTable th span.sort-arrow').forEach(span => span.textContent = '');
+        const arrow = th.querySelector('.sort-arrow');
+        arrow.textContent = sortState.direction === 'asc' ? '▲' : '▼';
+        filterAndRender();
+      });
+    });
+
+    function handleFile(file) {
+      uploadedFile = file;
+      uploadMeta.textContent = `✓ Selected: ${file.name}`;
+      uploadMeta.classList.add('active');
+      validateButton.classList.remove('btn-secondary');
+      validateButton.classList.add('btn');
+      downloadButton.disabled = true;
+      statsRow.style.display = 'none';
+      filterControls.style.display = 'none';
+      tableWrapper.style.display = 'none';
+      currentResults = [];
+      displayedResults = [];
+    }
+
+    function processFile(file) {
+      showSpinner(true);
+      setTimeout(() => {
+        const reader = new FileReader();
+        
+        reader.onload = (event) => {
+          try {
+            const data = event.target.result;
+            const workbook = XLSX.read(new Uint8Array(data), { type: 'array', raw: true });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const sheetData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+            
+            currentResults = createOutputRows(sheetData);
+            displayedResults = [...currentResults];
+            updateStats(currentResults);
+            
+            statsRow.style.display = 'grid';
+            filterControls.style.display = 'grid';
+            tableWrapper.style.display = 'block';
+            downloadButton.disabled = false;
+            
+            filterAndRender();
+          } catch (error) {
+            alert('Error reading file: ' + error.message);
+            console.error(error);
+          } finally {
+            showSpinner(false);
+          }
+        };
+        
+        reader.onerror = () => {
+          alert('Error reading file');
+          showSpinner(false);
+        };
+        
+        reader.readAsArrayBuffer(file);
+      }, 300);
+    }
+  </script>
+</body>
+</html>
